@@ -39,6 +39,7 @@ interface ControlPanelSidebarProps {
   isProUser?: boolean;
   usageLoaded?: boolean;
   updateAction?: React.ReactNode;
+  accountPanel?: React.ReactNode;
 }
 
 export default function ControlPanelSidebar({
@@ -58,6 +59,7 @@ export default function ControlPanelSidebar({
   isProUser,
   usageLoaded,
   updateAction,
+  accountPanel,
 }: ControlPanelSidebarProps) {
   const { t } = useTranslation();
   const [upgradeDismissed, setUpgradeDismissed] = useState(
@@ -268,31 +270,38 @@ export default function ControlPanelSidebar({
         />
 
         <div className="mx-1 h-px bg-border/10 dark:bg-white/6 my-1.5!" />
+      </div>
 
+      {/* Account panel — injected via props */}
+      {accountPanel}
+
+      <div className="px-2 pb-2">
         <div className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md">
-          {userImage ? (
+          {!accountPanel && (userImage ? (
             <img src={userImage} alt="" className="w-6 h-6 rounded-full shrink-0 object-cover" />
-          ) : (
+          ) : !accountPanel ? (
             <UserCircle size={18} className="shrink-0 text-foreground/50 dark:text-foreground/45" />
-          )}
-          <div className="flex-1 min-w-0">
-            {isSignedIn && (userName || userEmail) ? (
-              <>
-                <p className="text-xs text-foreground/80 dark:text-foreground/80 truncate leading-tight">
-                  {userName || t("sidebar.defaultUser")}
-                </p>
-                {userEmail && (
-                  <p className="text-xs text-foreground/55 dark:text-foreground/55 truncate leading-tight">
-                    {userEmail}
+          ) : null)}
+          {!accountPanel && (
+            <div className="flex-1 min-w-0">
+              {isSignedIn && (userName || userEmail) ? (
+                <>
+                  <p className="text-xs text-foreground/80 dark:text-foreground/80 truncate leading-tight">
+                    {userName || t("sidebar.defaultUser")}
                   </p>
-                )}
-              </>
-            ) : authLoaded && !isSignedIn ? (
-              <p className="text-xs text-foreground/45 dark:text-foreground/55">
-                {t("sidebar.notSignedIn")}
-              </p>
-            ) : null}
-          </div>
+                  {userEmail && (
+                    <p className="text-xs text-foreground/55 dark:text-foreground/55 truncate leading-tight">
+                      {userEmail}
+                    </p>
+                  )}
+                </>
+              ) : authLoaded && !isSignedIn ? (
+                <p className="text-xs text-foreground/45 dark:text-foreground/55">
+                  {t("sidebar.notSignedIn")}
+                </p>
+              ) : null}
+            </div>
+          )}
         </div>
       </div>
     </div>

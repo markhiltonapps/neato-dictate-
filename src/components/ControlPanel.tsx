@@ -19,6 +19,9 @@ import {
   clearTranscriptions as clearStore,
 } from "../stores/transcriptionStore";
 import ControlPanelSidebar, { type ControlPanelView } from "./ControlPanelSidebar";
+import AccountPanel from "./AccountPanel";
+import FeatureGate from "./FeatureGate";
+import { useLicense } from "../hooks/useLicense";
 import WindowControls from "./WindowControls";
 
 import { getCachedPlatform } from "../utils/platform";
@@ -78,6 +81,8 @@ export default function ControlPanel() {
   } = useSettings();
   const { isSignedIn, isLoaded: authLoaded, user } = useAuth();
   const usage = useUsage();
+  const license = useLicense();
+  const [gatedFeature, setGatedFeature] = useState<string | null>(null);
 
   const {
     status: updateStatus,
@@ -491,6 +496,16 @@ export default function ControlPanel() {
 
   return (
     <div className="h-screen bg-background flex flex-col">
+      {gatedFeature && (
+        <FeatureGate
+          feature={gatedFeature}
+          onUpgrade={() => {
+            setGatedFeature(null);
+            window.open("https://neato-dictate-web.vercel.app/dashboard", "_blank");
+          }}
+          onClose={() => setGatedFeature(null)}
+        />
+      )}
       <ConfirmDialog
         open={confirmDialog.open}
         onOpenChange={hideConfirmDialog}
@@ -578,6 +593,18 @@ export default function ControlPanel() {
             authLoaded={authLoaded}
             isProUser={!!(usage?.isSubscribed || usage?.isTrial)}
             usageLoaded={usage?.hasLoaded ?? false}
+            accountPanel={
+              <AccountPanel
+                signedIn={license.signedIn}
+                plan={license.plan}
+                user={license.user}
+                isLoading={license.isLoading}
+                onSignIn={license.signIn}
+                onSignOut={license.signOut}
+                onUpgrade={() => usage?.openCheckout() ?? window.electronAPI?.openExternal?.("https://neato-dictate-web.vercel.app/dashboard")}
+                onManageBilling={() => usage?.openBillingPortal()}
+              />
+            }
             updateAction={
               !updateStatus.isDevelopment &&
               (updateStatus.updateAvailable ||

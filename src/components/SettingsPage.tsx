@@ -1081,7 +1081,9 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
     });
   }, [isRemovingModels, cachePathHint, showConfirmDialog, showAlertDialog, t]);
 
-  const { isSignedIn, isLoaded, user } = useAuth();
+  const { isSignedIn: authSignedIn, isLoaded, user } = useAuth();
+  const licenseSignedIn = useSettingsStore((s) => s.isSignedIn);
+  const isSignedIn = authSignedIn || licenseSignedIn;
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [isOpeningBilling, setIsOpeningBilling] = useState(false);

@@ -191,8 +191,10 @@ const AudioTapManager = require("./src/helpers/audioTapManager");
 const MeetingDetectionEngine = require("./src/helpers/meetingDetectionEngine");
 const { i18nMain, changeLanguage } = require("./src/helpers/i18nMain");
 const { ensureYdotool } = require("./src/helpers/ensureYdotool");
+const LicenseManager = require("./src/helpers/licenseManager");
 
 // Manager instances - initialized after app.whenReady()
+let licenseManager = null;
 let debugLogger = null;
 let environmentManager = null;
 let windowManager = null;
@@ -288,6 +290,17 @@ function initializeCoreManagers() {
   textEditMonitor = new TextEditMonitor();
   audioTapManager = new AudioTapManager();
   windowManager.textEditMonitor = textEditMonitor;
+
+  // License manager — checks subscription status
+  licenseManager = new LicenseManager(app);
+  licenseManager.registerIpcHandlers();
+  licenseManager.checkAndRefresh().then((license) => {
+    if (license) {
+      console.log(`[LicenseManager] Signed in as ${license.user?.email} (${license.plan})`);
+    } else {
+      console.log("[LicenseManager] No active session — running as free tier");
+    }
+  });
 
   // IPC handlers must be registered before window content loads
   ipcHandlers = new IPCHandlers({

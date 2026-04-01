@@ -2139,7 +2139,7 @@ class IPCHandlers {
       process.env.NEATODICTATE_API_URL ||
       process.env.VITE_NEATODICTATE_API_URL ||
       runtimeEnv.VITE_NEATODICTATE_API_URL ||
-      "";
+      "https://neato-dictate-web.vercel.app";
 
     const getAuthUrl = () =>
       process.env.NEON_AUTH_URL ||
@@ -2199,13 +2199,98 @@ class IPCHandlers {
       return getSessionCookiesFromWindow(win);
     };
 
+    // License-based auth: read saved Supabase token, auto-refresh if expired
+    const SUPABASE_URL_AUTH = "https://djrgoduukyqarozqyxbu.supabase.co";
+    const SUPABASE_ANON_KEY_AUTH =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqcmdvZHV1a3lxYXJvenF5eGJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5ODQzODksImV4cCI6MjA5MDU2MDM4OX0.H6yqcj2KAr5bXqj82q9Kp0qbwxPEC6PcsLuccwm8hQA";
+
+    const getLicenseAuthHeaders = async () => {
+      const fs = require("fs");
+      try {
+        const tokenPath = path.join(app.getPath("userData"), "auth-token.json");
+        if (!fs.existsSync(tokenPath)) {
+          debugLogger.debug("[getLicenseAuthHeaders] No token file", {}, "cloud-api");
+          return null;
+        }
+        let tokenData = JSON.parse(fs.readFileSync(tokenPath, "utf8"));
+        if (!tokenData.access_token) {
+          debugLogger.debug("[getLicenseAuthHeaders] No access_token in file", {}, "cloud-api");
+          return null;
+        }
+
+        // Treat missing expires_at as already expired (force refresh attempt)
+        const expiresAt = tokenData.expires_at || 0;
+        const needsRefresh = Date.now() > expiresAt - 5 * 60 * 1000;
+        debugLogger.debug(
+          "[getLicenseAuthHeaders] token check",
+          { expiresAt, now: Date.now(), needsRefresh, hasRefreshToken: !!tokenData.refresh_token },
+          "cloud-api"
+        );
+
+        if (needsRefresh && tokenData.refresh_token) {
+          let refreshed = null;
+          let refreshStatus = null;
+          try {
+            const res = await fetch(`${SUPABASE_URL_AUTH}/auth/v1/token?grant_type=refresh_token`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY_AUTH },
+              body: JSON.stringify({ refresh_token: tokenData.refresh_token }),
+            });
+            refreshStatus = res.status;
+            if (res.ok) {
+              const data = await res.json();
+              if (data.access_token) {
+                refreshed = {
+                  access_token: data.access_token,
+                  refresh_token: data.refresh_token,
+                  expires_at: Date.now() + (data.expires_in || 3600) * 1000,
+                };
+                fs.writeFileSync(tokenPath, JSON.stringify(refreshed), "utf8");
+              }
+            } else {
+              const errBody = await res.json().catch(() => ({}));
+              debugLogger.warn("[getLicenseAuthHeaders] Refresh failed", { status: res.status, errBody }, "cloud-api");
+            }
+          } catch (e) {
+            debugLogger.warn("[getLicenseAuthHeaders] Refresh network error", { error: e.message }, "cloud-api");
+          }
+
+          debugLogger.debug("[getLicenseAuthHeaders] refresh result", { refreshed: !!refreshed, refreshStatus }, "cloud-api");
+
+          if (refreshed) {
+            return { Authorization: `Bearer ${refreshed.access_token}` };
+          }
+
+          // Refresh failed: only send old token if we aren't sure it's expired
+          if (tokenData.expires_at && Date.now() > tokenData.expires_at) {
+            // Known-expired and refresh failed — don't send a bad token
+            debugLogger.warn("[getLicenseAuthHeaders] Token known-expired and refresh failed — not sending", {}, "cloud-api");
+            return null;
+          }
+        }
+
+        return { Authorization: `Bearer ${tokenData.access_token}` };
+      } catch (e) {
+        debugLogger.error("[getLicenseAuthHeaders] Unexpected error", { error: e.message }, "cloud-api");
+      }
+      return null;
+    };
+
     ipcMain.handle("cloud-transcribe", async (event, audioBuffer, opts = {}) => {
       try {
         const apiUrl = getApiUrl();
         if (!apiUrl) throw new Error("Neato Dictate API URL not configured");
 
-        const cookieHeader = await getSessionCookies(event);
-        if (!cookieHeader) throw new Error("No session cookies available");
+        // Try license-based auth first, fall back to session cookies
+        let authHeaders = await getLicenseAuthHeaders();
+        let requestHeaders;
+        if (authHeaders) {
+          requestHeaders = authHeaders;
+        } else {
+          const cookieHeader = await getSessionCookies(event);
+          if (!cookieHeader) throw new Error("Not signed in. Sign in to use cloud transcription.");
+          requestHeaders = { Cookie: cookieHeader };
+        }
 
         const audioData = Buffer.from(audioBuffer);
         const { body, boundary } = buildMultipartBody(audioData, "audio.webm", "audio/webm", {
@@ -2225,13 +2310,48 @@ class IPCHandlers {
         );
 
         const url = new URL(`${apiUrl}/api/transcribe`);
-        const data = await postMultipart(url, body, boundary, { Cookie: cookieHeader });
+        let data = await postMultipart(url, body, boundary, requestHeaders);
 
         debugLogger.debug(
           "Cloud transcribe response",
           { statusCode: data.statusCode },
           "cloud-api"
         );
+
+        // On 401, force-refresh token and retry once
+        if (data.statusCode === 401 && authHeaders) {
+          debugLogger.warn("Cloud transcribe got 401 — forcing token refresh and retrying", {}, "cloud-api");
+          try {
+            const fs = require("fs");
+            const tokenPath = path.join(app.getPath("userData"), "auth-token.json");
+            const tokenData = JSON.parse(fs.readFileSync(tokenPath, "utf8"));
+            if (tokenData.refresh_token) {
+              const res = await fetch(`${SUPABASE_URL_AUTH}/auth/v1/token?grant_type=refresh_token`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY_AUTH },
+                body: JSON.stringify({ refresh_token: tokenData.refresh_token }),
+              });
+              if (res.ok) {
+                const refreshed = await res.json();
+                if (refreshed.access_token) {
+                  fs.writeFileSync(tokenPath, JSON.stringify({
+                    access_token: refreshed.access_token,
+                    refresh_token: refreshed.refresh_token,
+                    expires_at: Date.now() + (refreshed.expires_in || 3600) * 1000,
+                  }), "utf8");
+                  const retryHeaders = { Authorization: `Bearer ${refreshed.access_token}` };
+                  data = await postMultipart(url, body, boundary, retryHeaders);
+                  debugLogger.debug("Cloud transcribe retry response", { statusCode: data.statusCode }, "cloud-api");
+                }
+              } else {
+                const errBody = await res.json().catch(() => ({}));
+                debugLogger.warn("Token refresh on 401 failed", { status: res.status, errBody }, "cloud-api");
+              }
+            }
+          } catch (e) {
+            debugLogger.warn("Token refresh on 401 error", { error: e.message }, "cloud-api");
+          }
+        }
 
         if (data.statusCode === 401) {
           return { success: false, error: "Session expired", code: "AUTH_EXPIRED" };
@@ -2763,8 +2883,14 @@ class IPCHandlers {
         const apiUrl = getApiUrl();
         if (!apiUrl) throw new Error("Neato Dictate API URL not configured");
 
-        const cookieHeader = await getSessionCookies(event);
-        if (!cookieHeader) throw new Error("No session cookies available");
+        const authHeaders = await getLicenseAuthHeaders();
+        let requestHeaders = { "Content-Type": "application/json" };
+        if (authHeaders) {
+          Object.assign(requestHeaders, authHeaders);
+        } else {
+          const cookieHeader = await getSessionCookies(event);
+          if (cookieHeader) requestHeaders.Cookie = cookieHeader;
+        }
 
         debugLogger.debug(
           "Cloud reason request",
@@ -2778,10 +2904,7 @@ class IPCHandlers {
 
         const response = await fetch(`${apiUrl}/api/reason`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: cookieHeader,
-          },
+          headers: requestHeaders,
           body: JSON.stringify({
             text,
             model: opts.model,
@@ -2955,17 +3078,27 @@ class IPCHandlers {
       }
     );
 
+    // Relay limit-reached from renderer back to same renderer window
+    ipcMain.on("limit-reached", (event, data) => {
+      event.sender.send("limit-reached", data);
+    });
+
     ipcMain.handle("cloud-usage", async (event) => {
       try {
         const apiUrl = getApiUrl();
         if (!apiUrl) throw new Error("Neato Dictate API URL not configured");
 
-        const cookieHeader = await getSessionCookies(event);
-        if (!cookieHeader) throw new Error("No session cookies available");
+        const authHeaders = await getLicenseAuthHeaders();
+        let headers;
+        if (authHeaders) {
+          headers = authHeaders;
+        } else {
+          const cookieHeader = await getSessionCookies(event);
+          if (!cookieHeader) throw new Error("No session cookies available");
+          headers = { Cookie: cookieHeader };
+        }
 
-        const response = await fetch(`${apiUrl}/api/usage`, {
-          headers: { Cookie: cookieHeader },
-        });
+        const response = await fetch(`${apiUrl}/api/usage`, { headers });
 
         if (!response.ok) {
           if (response.status === 401) {
@@ -2987,10 +3120,16 @@ class IPCHandlers {
         const apiUrl = getApiUrl();
         if (!apiUrl) throw new Error("Neato Dictate API URL not configured");
 
-        const cookieHeader = await getSessionCookies(event);
-        if (!cookieHeader) throw new Error("No session cookies available");
+        const authHeaders = await getLicenseAuthHeaders();
+        let headers;
+        if (authHeaders) {
+          headers = { ...authHeaders };
+        } else {
+          const cookieHeader = await getSessionCookies(event);
+          if (!cookieHeader) throw new Error("No session cookies available");
+          headers = { Cookie: cookieHeader };
+        }
 
-        const headers = { Cookie: cookieHeader };
         const fetchOpts = { method: "POST", headers };
         if (body) {
           headers["Content-Type"] = "application/json";
@@ -3086,11 +3225,18 @@ class IPCHandlers {
         const apiUrl = getApiUrl();
         if (!apiUrl) throw new Error("Neato Dictate API URL not configured");
 
-        const cookieHeader = await getSessionCookies(event);
-        if (!cookieHeader) throw new Error("No session cookies available");
+        const authHeaders = await getLicenseAuthHeaders();
+        let requestHeaders;
+        if (authHeaders) {
+          requestHeaders = authHeaders;
+        } else {
+          const cookieHeader = await getSessionCookies(event);
+          if (!cookieHeader) throw new Error("No session cookies available");
+          requestHeaders = { Cookie: cookieHeader };
+        }
 
         const response = await fetch(`${apiUrl}/api/stt-config`, {
-          headers: { Cookie: cookieHeader },
+          headers: requestHeaders,
         });
 
         if (!response.ok) {

@@ -1199,32 +1199,36 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       const cloudReasoningMode = settings.cloudReasoningMode || "neato-dictate";
 
       if (cloudReasoningMode === "neato-dictate") {
-        const reasonResult = await withSessionRefresh(async () => {
-          const res = await window.electronAPI.cloudReason(processedText, {
-            agentName,
-            customDictionary: settings.customDictionary,
-            customPrompt: this.getCustomPrompt(),
-            language: settings.preferredLanguage || "auto",
-            locale: settings.uiLanguage || "en",
-            sttProvider: result.sttProvider,
-            sttModel: result.sttModel,
-            sttProcessingMs: result.sttProcessingMs,
-            sttWordCount: result.sttWordCount,
-            sttLanguage: result.sttLanguage,
-            audioDurationMs: result.audioDurationMs,
-            audioSizeBytes,
-            audioFormat,
+        try {
+          const reasonResult = await withSessionRefresh(async () => {
+            const res = await window.electronAPI.cloudReason(processedText, {
+              agentName,
+              customDictionary: settings.customDictionary,
+              customPrompt: this.getCustomPrompt(),
+              language: settings.preferredLanguage || "auto",
+              locale: settings.uiLanguage || "en",
+              sttProvider: result.sttProvider,
+              sttModel: result.sttModel,
+              sttProcessingMs: result.sttProcessingMs,
+              sttWordCount: result.sttWordCount,
+              sttLanguage: result.sttLanguage,
+              audioDurationMs: result.audioDurationMs,
+              audioSizeBytes,
+              audioFormat,
+            });
+            if (!res.success) {
+              const err = new Error(res.error || "Cloud reasoning failed");
+              err.code = res.code;
+              throw err;
+            }
+            return res;
           });
-          if (!res.success) {
-            const err = new Error(res.error || "Cloud reasoning failed");
-            err.code = res.code;
-            throw err;
-          }
-          return res;
-        });
 
-        if (reasonResult.success) {
-          processedText = reasonResult.text;
+          if (reasonResult.success) {
+            processedText = reasonResult.text;
+          }
+        } catch (reasonErr) {
+          logger.warn("Cloud reasoning failed — using raw transcription", { error: reasonErr.message }, "transcription");
         }
       } else {
         const effectiveModel = getEffectiveReasoningModel();

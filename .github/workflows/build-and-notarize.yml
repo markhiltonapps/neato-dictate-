@@ -159,6 +159,8 @@ jobs:
           VITE_NEON_AUTH_URL: ${{ vars.VITE_NEON_AUTH_URL }}
           VITE_NEATODICTATE_API_URL: ${{ vars.VITE_NEATODICTATE_API_URL }}
           VITE_NEATODICTATE_OAUTH_CALLBACK_URL: ${{ vars.VITE_NEATODICTATE_OAUTH_CALLBACK_URL }}
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4

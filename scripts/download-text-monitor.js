@@ -16,7 +16,7 @@ const {
   setExecutable,
 } = require("./lib/download-utils");
 
-const REPO = "NeatoVentures/neato-dictate";
+const REPO = "OpenWhispr/openwhispr";
 const BIN_DIR = path.join(__dirname, "..", "resources", "bin");
 
 const PLATFORM_CONFIG = {

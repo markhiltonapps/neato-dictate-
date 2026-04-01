@@ -19,7 +19,7 @@ const {
   setExecutable,
 } = require("./lib/download-utils");
 
-const REPO = "NeatoVentures/neato-dictate";
+const REPO = "OpenWhispr/openwhispr";
 const TAG_PREFIX = "windows-fast-paste-v";
 const ZIP_NAME = "windows-fast-paste-win32-x64.zip";
 const BINARY_NAME = "windows-fast-paste.exe";

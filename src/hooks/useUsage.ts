@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "./useAuth";
+import { useSettingsStore } from "../stores/settingsStore";
 import { CACHE_CONFIG } from "../config/constants";
 import { withSessionRefresh } from "../lib/neonAuth";
 
@@ -63,7 +64,10 @@ interface UseUsageResult {
 const USAGE_CACHE_TTL = CACHE_CONFIG.API_KEY_TTL; // 1 hour
 
 export function useUsage(): UseUsageResult | null {
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn: neonSignedIn, isLoaded: neonLoaded } = useAuth();
+  const licenseSignedIn = useSettingsStore((s) => s.isSignedIn);
+  const isSignedIn = neonSignedIn || licenseSignedIn;
+  const isLoaded = neonLoaded || licenseSignedIn;
   const [data, setData] = useState<UsageData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);

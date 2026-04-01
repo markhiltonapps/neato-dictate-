@@ -664,4 +664,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getUpdateNotificationData: () => ipcRenderer.invoke("get-update-notification-data"),
   updateNotificationReady: () => ipcRenderer.invoke("update-notification-ready"),
   updateNotificationRespond: (action) => ipcRenderer.invoke("update-notification-respond", action),
+
+  // License / subscription management
+  licenseGetStatus: () => ipcRenderer.invoke("license-get-status"),
+  licenseSignIn: (email, password) => ipcRenderer.invoke("license-sign-in", email, password),
+  licenseSignOut: () => ipcRenderer.invoke("license-sign-out"),
+  licenseResetPassword: (email) => ipcRenderer.invoke("license-reset-password", email),
+  licenseGetPlan: () => ipcRenderer.invoke("license-get-plan"),
+  licenseGetLimits: () => ipcRenderer.invoke("license-get-limits"),
+  licenseIsFeatureAllowed: (feature) => ipcRenderer.invoke("license-is-feature-allowed", feature),
 });

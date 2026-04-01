@@ -492,6 +492,7 @@
       "failedProviderSignIn": "Failed to sign in with {{provider}}",
       "failedUserCheck": "Failed to check user account",
       "generic": "Something went wrong. Please try again.",
+      "connectionFailed": "Connection failed. Please try again.",
       "invalidCredentials": "Invalid email or password",
       "plusAliasUnsupported": "Email aliases with '+' are not supported"
     },
@@ -528,6 +529,11 @@
     "social": {
       "completeInBrowser": "Complete sign-in in your browser",
       "continueWithGoogle": "Continue with Google"
+    },
+    "neatoAccount": {
+      "signIn": "Sign in with Neato account",
+      "noAccount": "Don't have an account?",
+      "signUpHere": "Sign up here"
     },
     "welcomeSubtitle": "Dictate anywhere using your voice",
     "welcomeTitle": "Welcome to Neato Dictate",

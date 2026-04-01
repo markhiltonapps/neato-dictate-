@@ -30,6 +30,7 @@ import EmailVerificationStep from "./EmailVerificationStep";
 import { setAgentName as saveAgentName } from "../utils/agentName";
 import { formatHotkeyLabel, getDefaultHotkey, isGlobeLikeHotkey } from "../utils/hotkeys";
 import { useAuth } from "../hooks/useAuth";
+import { useSettingsStore } from "../stores/settingsStore";
 import { HotkeyInput } from "./ui/HotkeyInput";
 import { useHotkeyRegistration } from "../hooks/useHotkeyRegistration";
 import { getValidationMessage } from "../utils/hotkeyValidator";
@@ -45,7 +46,9 @@ interface OnboardingFlowProps {
 
 export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const { t } = useTranslation();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn: neonSignedIn } = useAuth();
+  const licenseSignedIn = useSettingsStore((s) => s.isSignedIn);
+  const isSignedIn = neonSignedIn || licenseSignedIn;
 
   const getMaxStep = () => (isSignedIn ? 2 : 3);
 

@@ -65,6 +65,13 @@ export default function AuthenticationStep({
   const [passwordResetView, setPasswordResetView] = useState<PasswordResetView>(null);
   const [resetToken, setResetToken] = useState<string | null>(null);
 
+  // License (Supabase) sign-in — primary path for commercial customers
+  const [licenseEmail, setLicenseEmail] = useState("");
+  const [licensePassword, setLicensePassword] = useState("");
+  const [licenseError, setLicenseError] = useState<string | null>(null);
+  const [licenseLoading, setLicenseLoading] = useState(false);
+  const [showLicenseForm, setShowLicenseForm] = useState(false);
+
   const oauthProcessedRef = useRef(false);
   const resetProcessedRef = useRef(false);
   const needsVerificationRef = useRef(false);
@@ -316,6 +323,27 @@ export default function AuthenticationStep({
     setFullName("");
   }, []);
 
+  const handleLicenseSignIn = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      setLicenseError(null);
+      setLicenseLoading(true);
+      try {
+        const result = await window.electronAPI.licenseSignIn(licenseEmail, licensePassword);
+        if (result.success) {
+          onAuthComplete();
+        } else {
+          setLicenseError(result.error || t("auth.errors.invalidCredentials"));
+        }
+      } catch {
+        setLicenseError(t("auth.errors.connectionFailed"));
+      } finally {
+        setLicenseLoading(false);
+      }
+    },
+    [licenseEmail, licensePassword, onAuthComplete, t]
+  );
+
   // Auth not configured state
   if (!NEON_AUTH_URL || !authClient) {
     return (
@@ -533,11 +561,87 @@ export default function AuthenticationStep({
         </p>
       </div>
 
+      {/* Neato Account (Supabase) — primary commercial sign-in */}
+      {showLicenseForm ? (
+        <form onSubmit={handleLicenseSignIn} className="space-y-2">
+          <button
+            type="button"
+            onClick={() => { setShowLicenseForm(false); setLicenseError(null); }}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-0.5 mb-1"
+          >
+            <ChevronLeft className="w-3 h-3" />
+            {t("auth.common.back")}
+          </button>
+          <Input
+            type="email"
+            placeholder={t("auth.emailStep.emailPlaceholder")}
+            value={licenseEmail}
+            onChange={(e) => setLicenseEmail(e.target.value)}
+            className="h-9 text-sm"
+            required
+            disabled={licenseLoading}
+            autoFocus
+          />
+          <Input
+            type="password"
+            placeholder={t("auth.passwordForm.enterPasswordPlaceholder")}
+            value={licensePassword}
+            onChange={(e) => setLicensePassword(e.target.value)}
+            className="h-9 text-sm"
+            required
+            disabled={licenseLoading}
+          />
+          {licenseError && (
+            <div className="px-2.5 py-1.5 rounded bg-destructive/5 border border-destructive/20 flex items-center gap-1.5">
+              <AlertCircle className="w-3 h-3 text-destructive shrink-0" />
+              <p className="text-xs text-destructive leading-snug">{licenseError}</p>
+            </div>
+          )}
+          <Button type="submit" disabled={licenseLoading || !licenseEmail || !licensePassword} className="w-full h-9">
+            {licenseLoading ? (
+              <><Loader2 className="w-3.5 h-3.5 animate-spin" /><span className="text-sm font-medium">{t("auth.passwordForm.signingIn")}</span></>
+            ) : (
+              <span className="text-sm font-medium">{t("auth.passwordForm.signIn")}</span>
+            )}
+          </Button>
+          <p className="text-xs text-center text-muted-foreground/70">
+            {t("auth.neatoAccount.noAccount")}{" "}
+            <a
+              href="https://neato-dictate-web.vercel.app/auth/signup"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:text-primary/80 transition-colors"
+              onClick={(e) => { e.preventDefault(); window.electronAPI?.openExternal?.("https://neato-dictate-web.vercel.app/auth/signup"); }}
+            >
+              {t("auth.neatoAccount.signUpHere")}
+            </a>
+          </p>
+        </form>
+      ) : (
+        <Button
+          type="button"
+          onClick={() => setShowLicenseForm(true)}
+          className="w-full h-9"
+          disabled={isSocialLoading !== null}
+        >
+          <span className="text-sm font-medium">{t("auth.neatoAccount.signIn")}</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Button>
+      )}
+
+      <div className="flex items-center gap-2">
+        <div className="flex-1 h-px bg-border/50" />
+        <span className="text-xs font-medium text-muted-foreground/40 uppercase tracking-widest px-1">
+          {t("auth.common.or")}
+        </span>
+        <div className="flex-1 h-px bg-border/50" />
+      </div>
+
       <Button
         type="button"
         variant="social"
         onClick={() => handleSocialSignIn("google")}
-        disabled={isSocialLoading !== null || isCheckingEmail}
+        disabled={isSocialLoading !== null || isCheckingEmail || showLicenseForm}
         className="w-full h-9"
       >
         {isSocialLoading === "google" ? (
@@ -568,7 +672,7 @@ export default function AuthenticationStep({
           e.preventDefault();
           handleEmailContinue();
         }}
-        className="space-y-2"
+        className={`space-y-2 ${showLicenseForm ? "hidden" : ""}`}
       >
         <Input
           type="email"

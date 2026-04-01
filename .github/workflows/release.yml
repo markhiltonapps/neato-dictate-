@@ -76,6 +76,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           VITE_NEON_AUTH_URL: ${{ vars.VITE_NEON_AUTH_URL }}
           VITE_NEATODICTATE_API_URL: ${{ vars.VITE_NEATODICTATE_API_URL }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
           VITE_NEATODICTATE_OAUTH_CALLBACK_URL: ${{ vars.VITE_NEATODICTATE_OAUTH_CALLBACK_URL }}
 
   build-windows:
@@ -150,6 +151,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           VITE_NEON_AUTH_URL: ${{ vars.VITE_NEON_AUTH_URL }}
           VITE_NEATODICTATE_API_URL: ${{ vars.VITE_NEATODICTATE_API_URL }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
           VITE_NEATODICTATE_OAUTH_CALLBACK_URL: ${{ vars.VITE_NEATODICTATE_OAUTH_CALLBACK_URL }}
           CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
@@ -242,6 +244,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           VITE_NEON_AUTH_URL: ${{ vars.VITE_NEON_AUTH_URL }}
           VITE_NEATODICTATE_API_URL: ${{ vars.VITE_NEATODICTATE_API_URL }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
           VITE_NEATODICTATE_OAUTH_CALLBACK_URL: ${{ vars.VITE_NEATODICTATE_OAUTH_CALLBACK_URL }}
           CSC_IDENTITY_AUTO_DISCOVERY: true
           CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}

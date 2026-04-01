@@ -220,8 +220,8 @@
   },
   "publish": {
     "provider": "github",
-    "owner": "NeatoVentures",
-    "repo": "neato-dictate",
+    "owner": "markhiltonapps",
+    "repo": "neato-dictate-",
     "private": false,
     "releaseType": "draft"
   }

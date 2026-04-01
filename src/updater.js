@@ -33,8 +33,8 @@ class UpdateManager {
 
     autoUpdater.setFeedURL({
       provider: "github",
-      owner: "NeatoVentures",
-      repo: "neato-dictate",
+      owner: "markhiltonapps",
+      repo: "neato-dictate-",
       private: false,
     });
 

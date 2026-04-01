@@ -1,5 +1,19 @@
+import * as Sentry from "@sentry/electron/renderer";
 import React, { Suspense, useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
+
+// Initialise Sentry in the renderer process
+if (import.meta.env.PROD && import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    environment: "production",
+    tracesSampleRate: 0.1,
+    ignoreErrors: [
+      "ResizeObserver loop limit exceeded",
+      /^Network Error$/,
+    ],
+  });
+}
 import { I18nextProvider, useTranslation } from "react-i18next";
 import App from "./App.jsx";
 import AuthenticationStep from "./components/AuthenticationStep.tsx";

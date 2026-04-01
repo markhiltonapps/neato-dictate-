@@ -11,6 +11,19 @@ const path = require("path");
 const http = require("http");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
+// Error monitoring — initialise before anything else so crashes are captured
+const { init: sentryInit, captureException } = require("@sentry/electron/main");
+if (process.env.NODE_ENV !== "development" && process.env.VITE_SENTRY_DSN) {
+  sentryInit({
+    dsn: process.env.VITE_SENTRY_DSN,
+    environment: process.env.NODE_ENV || "production",
+    // Capture unhandled exceptions and promise rejections automatically
+    onFatalError: (error) => {
+      console.error("Fatal error captured by Sentry:", error.message);
+    },
+  });
+}
+
 const VALID_CHANNELS = new Set(["development", "staging", "production"]);
 const DEFAULT_OAUTH_PROTOCOL_BY_CHANNEL = {
   development: "neato-dictate-dev",
